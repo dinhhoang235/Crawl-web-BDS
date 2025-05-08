@@ -220,7 +220,10 @@ async function main() {
 
             const moigioi = await detailPage.$eval('.re__ldp-agent-desc', el => el.innerText.trim()).catch(() => null);
             if (moigioi && moigioi.includes('Môi giới chuyên nghiệp')) {
+              isValid = false;
               console.log(`👔 [${index}] Môi giới chuyên nghiệp - ${cleanLink}`);
+            } else {
+              isValid = true;
             }
           }
 
