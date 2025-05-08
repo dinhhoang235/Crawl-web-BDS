@@ -14,16 +14,16 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 // Add this right after the puppeteer setup but before main()
 const validListings = [];
-const excelFile = path.join(__dirname, 'valid_listings.xlsx'); 
+const excelFile = path.join(__dirname, 'valid_listings.xlsx');
 
 // Helper function to format date strings
 function formatDateForExcel(dateText) {
   const today = new Date();
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
-  
+
   let resultDate;
-  
+
   if (dateText.includes("Đăng hôm nay")) {
     resultDate = today;
   } else if (dateText.includes("Đăng hôm qua")) {
@@ -32,12 +32,12 @@ function formatDateForExcel(dateText) {
     // Return the original text if it's not today or yesterday
     return dateText;
   }
-  
+
   // Format as dd/mm/yy
   const day = String(resultDate.getDate()).padStart(2, '0');
   const month = String(resultDate.getMonth() + 1).padStart(2, '0');
   const year = String(resultDate.getFullYear())
-  
+
   return `${day}/${month}/${year}`;
 }
 
@@ -45,7 +45,7 @@ function formatDateForExcel(dateText) {
 async function combineExcelData(newData, excelFilePath) {
   try {
     let existingData = [];
-    
+
     // Check if the Excel file already exists
     if (fs.existsSync(excelFilePath)) {
       console.log(`📊 Existing Excel file found at: ${excelFilePath}`);
@@ -55,20 +55,20 @@ async function combineExcelData(newData, excelFilePath) {
       existingData = XLSX.utils.sheet_to_json(worksheet);
       console.log(`📊 Loaded ${existingData.length} existing records`);
     }
-    
+
     // Create a map of existing URLs to avoid duplicates
     const existingUrls = new Map();
     existingData.forEach(item => {
       existingUrls.set(item.URL, true);
     });
-    
+
     // Filter out duplicates from new data
     const uniqueNewData = newData.filter(item => !existingUrls.has(item.URL));
     console.log(`📊 Found ${uniqueNewData.length} new unique listings to add`);
-    
+
     // Combine existing data with new unique data
     const combinedData = [...existingData, ...uniqueNewData];
-    
+
     return combinedData;
   } catch (error) {
     console.error(`❌ Error combining Excel data: ${error.message}`);
@@ -149,19 +149,19 @@ async function main() {
           ).catch(() => '');
 
           console.log(`📍 Địa điểm: ${locationText}`);
-          
+
           // Define the list of desired districts in Hanoi
           const desiredDistricts = [
-            'Cầu Giấy', 'Đống Đa', 'Ba Đình', 'Bắc Từ Liêm', 
-            'Nam Từ Liêm', 'Tây Hồ', 'Hoàng Mai', 
+            'Cầu Giấy', 'Đống Đa', 'Ba Đình', 'Bắc Từ Liêm',
+            'Nam Từ Liêm', 'Tây Hồ', 'Hoàng Mai',
             'Hai Bà Trưng', 'Thanh Xuân', 'Hà Đông'
           ];
-          
+
           // Check if the location contains any of the desired districts
-          const isDesiredLocation = desiredDistricts.some(district => 
+          const isDesiredLocation = desiredDistricts.some(district =>
             locationText.toLowerCase().includes(district.toLowerCase())
           );
-          
+
           // Skip this listing if it's not in a desired location
           if (!isDesiredLocation) {
             console.log(`⏭️ Bỏ qua vị trí không phù hợp: ${locationText}`);
@@ -172,10 +172,10 @@ async function main() {
           // Get the link to the detail page of the listing
           const linkHandle = await item.getProperty('href');
           const link = await linkHandle.jsonValue();
-          
+
           // Improve link cleaning to handle line breaks and ensure proper URL structure
           let cleanLink = link.replace(/\s+/g, '');
-          
+
           // Ensure the URL starts with the correct domain
           if (!cleanLink.startsWith('https://batdongsan.com.vn')) {
             // Try to extract a valid URL if possible
@@ -184,10 +184,10 @@ async function main() {
               cleanLink = match[0];
             }
           }
-          
+
           // Make sure there are no line breaks or invalid characters in the URL
           cleanLink = cleanLink.replace(/[\n\r\t]/g, '');
-          
+
           // Validate URL before proceeding
           if (!cleanLink.startsWith('https://batdongsan.com.vn')) {
             console.log(`⚠️ [${index}] Invalid link skipped: ${cleanLink}`);
@@ -201,11 +201,11 @@ async function main() {
 
           // Check if the agent profile link is present
           const element = await detailPage.$('.re__contact-link a[tracking-id="navigate-agent-profile"]');
+          let isValid = true;
 
           if (element) {
-            // Extract and process the agent profile text
+            // Có "xem thêm" → xử lý số tin
             const text = await detailPage.evaluate(el => el.innerText.trim().toLowerCase(), element);
-            let isValid = true;
 
             if (text.includes('xem thêm')) {
               const match = text.match(/xem thêm\s*(\d+)/);
@@ -213,33 +213,32 @@ async function main() {
               isValid = count <= 3;
               console.log(`📌 [${index}] Số tin của agent: ${count}`);
             } else {
-              isValid = true; // Default to true if no count is found
               console.log(`📌 [${index}] Không có thông tin về số tin của agent`);
             }
-
-            if (isValid) {
-              // Store the complete listing information
-              const listingInfo = {
-                link: cleanLink,
-                date: publishedText,
-                location: locationText
-              };
-              validListings.push(listingInfo);
-              
-              // Log with a short URL preview and then the full URL on a new line
-              console.log(`✅ [${index}] Tin Hợp lệ`);
-              console.log(`   Full URL: ${cleanLink}`);
-            } else {
-              console.log(`❌ [${index}] Tin bị loại (xem thêm > 3)`);
-              console.log(`   URL: ${cleanLink}`);
-            }
           } else {
-            // Check if the listing is from a professional agent
+            console.log(`📌 [${index}] Không tìm thấy 'xem thêm'`);
+
             const moigioi = await detailPage.$eval('.re__ldp-agent-desc', el => el.innerText.trim()).catch(() => null);
             if (moigioi && moigioi.includes('Môi giới chuyên nghiệp')) {
               console.log(`👔 [${index}] Môi giới chuyên nghiệp - ${cleanLink}`);
             }
           }
+
+          if (isValid) {
+            const listingInfo = {
+              link: cleanLink,
+              date: publishedText,
+              location: locationText
+            };
+            validListings.push(listingInfo);
+
+            console.log(`✅ [${index}] Tin Hợp lệ`);
+            console.log(`   Full URL: ${cleanLink}`);
+          } else {
+            console.log(`❌ [${index}] Tin bị loại (xem thêm > 3)`);
+            console.log(`   URL: ${cleanLink}`);
+          }
+
 
           // Close the detail page tab
           await detailPage.close();
@@ -273,7 +272,7 @@ async function main() {
       if (hasFoundRecentBefore) {
         consecutiveNoRecentPages++;
         console.log(`⚠️ No recent posts found: ${consecutiveNoRecentPages} consecutive pages`);
-        
+
         // Stop pagination after 3 consecutive pages with no recent posts
         if (consecutiveNoRecentPages >= 15) {
           console.log(`🛑 No recent posts found for 15 consecutive pages. Stopping search at page ${currentPage}.`);
@@ -323,17 +322,17 @@ async function main() {
       'Location': item.location,
       'URL': item.link
     }));
-    
+
     // Combine with existing data
     const combinedData = await combineExcelData(excelData, excelFile);
-    
+
     // Create a new workbook and worksheet
     const workbook = XLSX.utils.book_new();
     const worksheet = XLSX.utils.json_to_sheet(combinedData);
-    
+
     // Add worksheet to workbook
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Valid Listings');
-    
+
     // Set column widths for better readability
     const columnWidths = [
       { wch: 25 },  // Date column
@@ -341,7 +340,7 @@ async function main() {
       { wch: 75 }   // URL column (wide enough for long URLs)
     ];
     worksheet['!cols'] = columnWidths;
-    
+
     // Write to file
     XLSX.writeFile(workbook, excelFile);
     console.log(`📊 Exported ${combinedData.length} listings (${validListings.length} new + ${combinedData.length - validListings.length} existing) to Excel: ${excelFile}`);
