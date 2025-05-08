@@ -353,5 +353,5 @@ async function main() {
 // Run the main function and handle any errors
 main().catch(err => {
   console.error('Lỗi chính:', err);
-  process.exit(1);
+  // process.exit(1);
 });
