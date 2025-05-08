@@ -214,6 +214,7 @@ async function main() {
               console.log(`📌 [${index}] Số tin của agent: ${count}`);
             } else {
               console.log(`📌 [${index}] Không có thông tin về số tin của agent`);
+              isValid = true;
             }
           } else {
             console.log(`📌 [${index}] Không tìm thấy 'xem thêm'`);
