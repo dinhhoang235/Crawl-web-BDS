@@ -10,7 +10,7 @@ if not exist node_modules (
 
 echo.
 echo Running the crawl...
-npm start
+cmd /k npm start
 
 echo.
 echo [DONE] Press any key to exit...
