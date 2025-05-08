@@ -212,6 +212,9 @@ async function main() {
               const count = parseInt(match?.[1]) || 0;
               isValid = count <= 3;
               console.log(`📌 [${index}] Số tin của agent: ${count}`);
+            } else {
+              isValid = true; // Default to true if no count is found
+              console.log(`📌 [${index}] Không có thông tin về số tin của agent`);
             }
 
             if (isValid) {
