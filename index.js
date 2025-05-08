@@ -272,8 +272,8 @@ async function main() {
         console.log(`⚠️ No recent posts found: ${consecutiveNoRecentPages} consecutive pages`);
         
         // Stop pagination after 3 consecutive pages with no recent posts
-        if (consecutiveNoRecentPages >= 3) {
-          console.log(`🛑 No recent posts found for 3 consecutive pages. Stopping search at page ${currentPage}.`);
+        if (consecutiveNoRecentPages >= 15) {
+          console.log(`🛑 No recent posts found for 15 consecutive pages. Stopping search at page ${currentPage}.`);
           continuePaginating = false;
           break;
         }
