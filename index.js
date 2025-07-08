@@ -14,7 +14,7 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 // Add this right after the puppeteer setup but before main()
 const validListings = [];
-const excelFile = path.join(__dirname, 'valid_listings.xlsx');
+const excelFile = path.join(__dirname, 'batdongsan.xlsx');
 
 // Helper function to format date strings
 function formatDateForExcel(dateText) {
@@ -77,20 +77,75 @@ async function combineExcelData(newData, excelFilePath) {
   }
 }
 
+// Helper function to save Excel file
+async function saveExcelFile(dataToSave, filePath) {
+  try {
+    if (dataToSave.length === 0) {
+      console.log('📊 No data to save');
+      return;
+    }
+
+    // Format data for Excel
+    const excelData = dataToSave.map(item => ({
+      'Date': formatDateForExcel(item.date),
+      'Location': item.location,
+      'URL': item.link
+    }));
+
+    // Combine with existing data
+    const combinedData = await combineExcelData(excelData, filePath);
+
+    // Create a new workbook and worksheet
+    const workbook = XLSX.utils.book_new();
+    const worksheet = XLSX.utils.json_to_sheet(combinedData);
+
+    // Add worksheet to workbook
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Valid Listings');
+
+    // Set column widths for better readability
+    const columnWidths = [
+      { wch: 25 },  // Date column
+      { wch: 40 },  // Location column
+      { wch: 75 }   // URL column (wide enough for long URLs)
+    ];
+    worksheet['!cols'] = columnWidths;
+
+    // Write to file
+    XLSX.writeFile(workbook, filePath);
+    console.log(`📊 Exported ${combinedData.length} listings (${dataToSave.length} new + ${combinedData.length - dataToSave.length} existing) to Excel: ${filePath}`);
+  } catch (error) {
+    console.error(`❌ Failed to create Excel file: ${error.message}`);
+  }
+}
+
 async function main() {
   // Initialize browser with security settings
   const browser = await puppeteer.launch({
-    headless: true, // Run browser in headless mode (no GUI)
-    args: ['--no-sandbox', '--disable-setuid-sandbox'] // Security flags
+    headless: true,
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-accelerated-2d-canvas',
+      '--no-first-run',
+      '--no-zygote',
+      '--disable-gpu'
+    ]
   });
 
-  // Open a new browser page
   const page = await browser.newPage();
-  // Navigate to BatDongSan with filters for Hanoi rentals between 8-60 million VND
-  await page.goto(url1, {
-    waitUntil: 'domcontentloaded', // Wait until DOM content is loaded
-    timeout: 60000 // 60 seconds timeout for page loading
-  });
+  
+  // Set user agent to avoid detection
+  await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
+  
+  // Add error handling for navigation
+  try {
+    await page.goto(url1, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  } catch (e) {
+    console.error('❌ Lỗi khi tải trang:', e.message);
+    await browser.close();
+    throw e;
+  }
 
   // Initialize pagination variables
   let currentPage = 1;
@@ -254,6 +309,10 @@ async function main() {
           if (attempt < retries) {
             console.log(`🔁 Thử lại sau 2 giây...`);
             await delay(2000);
+          } else {
+            // Auto-save on final attempt failure
+            console.log(`💾 Auto-saving current progress due to error...`);
+            await saveExcelFile(validListings, excelFile);
           }
         }
       }
@@ -316,38 +375,8 @@ async function main() {
   }
 
   // Save to Excel file
-  // Replace the Excel saving code in main() with this code
-
-  // Save to Excel file
   try {
-    // Format data for Excel
-    const excelData = validListings.map(item => ({
-      'Date': formatDateForExcel(item.date),
-      'Location': item.location,
-      'URL': item.link
-    }));
-
-    // Combine with existing data
-    const combinedData = await combineExcelData(excelData, excelFile);
-
-    // Create a new workbook and worksheet
-    const workbook = XLSX.utils.book_new();
-    const worksheet = XLSX.utils.json_to_sheet(combinedData);
-
-    // Add worksheet to workbook
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Valid Listings');
-
-    // Set column widths for better readability
-    const columnWidths = [
-      { wch: 25 },  // Date column
-      { wch: 40 },  // Location column
-      { wch: 75 }   // URL column (wide enough for long URLs)
-    ];
-    worksheet['!cols'] = columnWidths;
-
-    // Write to file
-    XLSX.writeFile(workbook, excelFile);
-    console.log(`📊 Exported ${combinedData.length} listings (${validListings.length} new + ${combinedData.length - validListings.length} existing) to Excel: ${excelFile}`);
+    await saveExcelFile(validListings, excelFile);
   } catch (error) {
     console.error(`❌ Failed to create Excel file: ${error.message}`);
   }
@@ -359,5 +388,12 @@ async function main() {
 // Run the main function and handle any errors
 main().catch(err => {
   console.error('Lỗi chính:', err);
+  // Auto-save on main function error
+  console.log(`💾 Auto-saving current progress due to main error...`);
+  saveExcelFile(validListings, excelFile).then(() => {
+    console.log('✅ Auto-save completed');
+  }).catch(saveErr => {
+    console.error('❌ Auto-save failed:', saveErr.message);
+  });
   // process.exit(1);
 });
