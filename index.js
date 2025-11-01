@@ -209,7 +209,7 @@ async function main() {
           const desiredDistricts = [
             'Cầu Giấy', 'Đống Đa', 'Ba Đình', 'Bắc Từ Liêm',
             'Nam Từ Liêm', 'Tây Hồ', 'Hoàng Mai',
-            'Hai Bà Trưng', 'Thanh Xuân', 'Hà Đông'
+            'Hai Bà Trưng', 'Thanh Xuân', 'Hà Đông', 'Hoàn Kiếm'
           ];
 
           // Check if the location contains any of the desired districts
